@@ -74,7 +74,7 @@ The success of the project is measured against operational time savings, cogniti
 
 ### High-Level Data Flow
 
-
+```text
 ┌────────────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐
 │  Incoming Alert Event  │ ───►  │ Rule & Artifact Parser │ ───►  │ Indicator Extraction   │
 │  (Elasticsearch/Kibana)│       │ (Rule ID, Host, Time)  │       │ (IP, Domain, SHA256)   │
@@ -119,7 +119,7 @@ The success of the project is measured against operational time savings, cogniti
 │  • One-Click Kibana Contextual Query Deep-Links        │
 │  • Rule-Specific Triage Runbook & Action Guidance      │
 └────────────────────────────────────────────────────────┘
-
+```
 
 ### Hybrid Infrastructure (AWS & ORTSOC)
 * **ORTSOC On-Premises Environment:** Hosts the monitored client log aggregators, Elasticsearch cluster, and Kibana visualization layer. Alerts trigger either via automated Kibana alert actions or analyst-initiated triage queries.
