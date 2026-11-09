@@ -10,6 +10,8 @@
 *.key
 id_ed25519
 !*.pub
+.env
+*.env
 
 # Python cache
 __pycache__/

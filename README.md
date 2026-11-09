@@ -35,6 +35,7 @@
     - [Code Review & Pull Request Standards](#code-review--pull-request-standards)
 12. [Stakeholders & Mentorship](#12-stakeholders--mentorship)
 13. [References & Acknowledgments](#13-references--acknowledgments)
+14. [Development Methodology & Tooling (AI)](#14-development-methodology--tooling-ai)
 
 ---
 
@@ -367,3 +368,11 @@ To ensure consistent accountability across the academic term:
 * [AlienVault Open Threat Exchange (OTX) API Reference](https://otx.alienvault.com/api)
 * [Elasticsearch & Kibana Query Language (KQL) Documentation](https://www.elastic.co/guide/en/kibana/current/kuery-query.html)
 * [strongSwan IPsec Architecture & Documentation](https://docs.strongswan.org/)
+
+## 14. Development Methodology & Tooling (AI)
+
+This project leverages modern software development workflows, including generative AI tooling (Gemini) for:
+- Accelerating initial boilerplate generation (Terraform modules, Ansible plays, shell automation)
+- Syntax validation and troubleshooting configuration errors
+
+All architecture decisions, data flow designs, security configurations, and final implementations were authored, manually audited, integrated, and verified in local/lab environments by the project author.

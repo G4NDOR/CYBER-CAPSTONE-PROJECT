@@ -1,0 +1,166 @@
+---
+- name: Provision Alert Enrichment Core Node
+  hosts: app_servers
+  become: yes
+  vars:
+    # Set of teammates to onboard onto the shared server
+    team_members:
+      - username: "almog"
+        pubkey: "{{ lookup('file', '~/.ssh/capstone_aws_key.pub'| expanduser) }}"
+      - username: "gandor"
+        pubkey: "{{ lookup('file', '~/.ssh/capstone_aws_key.pub'| expanduser) }}"
+      - username: "drake"
+        pubkey: "{{ lookup('file', '~/.ssh/capstone_aws_key.pub'| expanduser) }}"
+      - username: "marco"
+        pubkey: "{{ lookup('file', '~/.ssh/capstone_aws_key.pub'| expanduser) }}"
+      - username: "julio"
+        pubkey: "{{ lookup('file', '~/.ssh/capstone_aws_key.pub'| expanduser) }}"
+      - username: "jeremy"
+        pubkey: "{{ lookup('file', '~/.ssh/capstone_aws_key.pub'| expanduser) }}"
+
+  tasks:
+    - name: Update apt cache and install base utilities
+      apt:
+        update_cache: yes
+        pkg:
+          - curl
+          - git
+          - ufw
+          - fail2ban
+          - htop
+          - jq
+          - python3-pip
+          - logrotate
+
+    # User & Group Provisioning
+    - name: Create shared developer group
+      group:
+        name: enrichment-team
+        state: present
+
+    - name: Create user accounts for teammates
+      user:
+        name: "{{ item.username }}"
+        shell: /bin/bash
+        groups: ["enrichment-team", "sudo"]
+        append: yes
+      loop: "{{ team_members }}"
+
+    - name: Deploy authorized SSH keys for teammates
+      authorized_key:
+        user: "{{ item.username }}"
+        key: "{{ item.pubkey }}"
+        state: present
+      loop: "{{ team_members }}"
+
+    # Shared Workspace & Abstraction Directories
+    - name: Create shared directories with SGID permission
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: enrichment-team
+        mode: '2775' # 2 sets SGID: files created inherit the 'enrichment-team' group
+      loop:
+        - /opt/alert-enrichment
+        - /opt/alert-enrichment/plugins
+        - /opt/alert-enrichment/kibana_queries
+        - /opt/alert-enrichment/rule_mappings
+        - /opt/alert-enrichment/test_fixtures
+        - /opt/alert-enrichment/app
+
+    # Storage Safeguard: Logrotate
+    - name: Set up logrotate to prevent disk exhaustion
+      copy:
+        dest: /etc/logrotate.d/enrichment-pipeline
+        content: |
+          /opt/alert-enrichment/*.log {
+              daily
+              rotate 7
+              compress
+              missingok
+              notifempty
+              copytruncate
+              maxsize 100M
+          }
+
+    # Lightweight Kubernetes (k3s)
+    - name: Check if k3s is already installed
+      stat:
+        path: /usr/local/bin/k3s
+      register: k3s_check
+
+    #- name: Install k3s single-node cluster
+    #  shell: "curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC='--write-kubeconfig-mode 644' sh -"
+    #  when: not k3s_check.stat.exists
+
+    # Work around, Install k3s on bastion and trasfer to app-node
+    # app-node is a IPv6 only, doesn't support curl -6
+
+    # Ansible looks for file to copy on host machine, not bastion 
+
+    # Download directly to my local WSL controller
+    - name: Download k3s binary to local controller
+      delegate_to: localhost
+      become: no
+      ansible.builtin.get_url:
+        url: https://github.com/k3s-io/k3s/releases/download/v1.31.2%2Bk3s1/k3s
+        dest: /tmp/k3s
+        mode: '0755'
+      when: not k3s_check.stat.exists
+
+    - name: Download k3s install script to local controller
+      delegate_to: localhost
+      become: no
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: /tmp/install-k3s.sh
+        mode: '0755'
+      when: not k3s_check.stat.exists
+
+    # Copy directly from local controller to app-node via SSH tunnel
+    - name: Copy k3s binary to App Node
+      ansible.builtin.copy:
+        src: /tmp/k3s
+        dest: /usr/local/bin/k3s
+        mode: '0755'
+        owner: root
+        group: root
+      when: not k3s_check.stat.exists
+
+    - name: Copy install script to App Node
+      ansible.builtin.copy:
+        src: /tmp/install-k3s.sh
+        dest: /tmp/install-k3s.sh
+        mode: '0755'
+      when: not k3s_check.stat.exists
+
+  
+    - name: Install k3s from local binary
+      ansible.builtin.shell: |
+        INSTALL_K3S_SKIP_DOWNLOAD=true \
+        INSTALL_K3S_EXEC='--write-kubeconfig-mode 644' \
+        /tmp/install-k3s.sh
+      environment:
+        INSTALL_K3S_SKIP_DOWNLOAD: "true"
+      when: not k3s_check.stat.exists
+
+
+    - name: Ensure .kube directory exists for users
+      file:
+        path: "/home/{{ item.username }}/.kube"
+        state: directory
+        owner: "{{ item.username }}"
+        group: "{{ item.username }}"
+        mode: '0700'
+      loop: "{{ team_members }}"
+
+    - name: Copy k3s kubeconfig to user homes
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: "/home/{{ item.username }}/.kube/config"
+        remote_src: yes
+        owner: "{{ item.username }}"
+        group: "{{ item.username }}"
+        mode: '0600'
+      loop: "{{ team_members }}"
