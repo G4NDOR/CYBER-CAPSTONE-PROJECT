@@ -1,0 +1,113 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'Progress Reports/**'
+      - 'README.md'
+      - 'docs/**'
+      - '.gitignore'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'Progress Reports/**'
+      - 'README.md'
+      - 'docs/**'
+
+jobs:
+  # -------------------------------------------------------------
+  # STAGE 1: AUTOMATED VERIFICATION (Runs on all PRs & main pushes)
+  # -------------------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Linting & Testing Tools
+        run: |
+          pip install flake8 pytest requests
+
+      - name: Run Flake8 Syntax Check
+        run: |
+          # Stop build if there are syntax errors or undefined names
+          flake8 plugins/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run Plugin Interface Tests
+        run: |
+          if [ -d "tests" ]; then
+            pytest tests/
+          else
+            echo "No tests directory found, skipping unit tests."
+          fi
+
+  # -------------------------------------------------------------
+  # STAGE 2: CONTINUOUS DEPLOYMENT (Runs ONLY after merge to main)
+  # -------------------------------------------------------------
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure SSH Jump Host
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          BASTION_IP: ${{ secrets.BASTION_IP }}
+          APP_NODE_IP: ${{ secrets.APP_NODE_IP }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          # Build SSH configuration matching your local setup
+          cat <<EOF > ~/.ssh/config
+          Host bastion
+              HostName $BASTION_IP
+              User ubuntu
+              IdentityFile ~/.ssh/id_ed25519
+              StrictHostKeyChecking no
+
+          Host app-node
+              HostName $APP_NODE_IP
+              User ubuntu
+              IdentityFile ~/.ssh/id_ed25519
+              ProxyJump bastion
+              StrictHostKeyChecking no
+          EOF
+
+      - name: Test Connection to Private App Node
+        run: |
+          ssh app-node "uptime"
+
+      - name: Sync Plugins, Queries, and Rules to Live Server
+        run: |
+          # Sync plugins without deleting system helper files on server
+          if [ -d "plugins" ]; then
+            rsync -avz -e ssh plugins/ app-node:/opt/alert-enrichment/plugins/
+          fi
+
+          # Sync Kibana queries
+          if [ -d "kibana_queries" ]; then
+            rsync -avz -e ssh kibana_queries/ app-node:/opt/alert-enrichment/kibana_queries/
+          fi
+
+          # Sync Rule mappings
+          if [ -d "rule_mappings" ]; then
+            rsync -avz -e ssh rule_mappings/ app-node:/opt/alert-enrichment/rule_mappings/
+          fi
+
+      - name: Update Core Application Code
+        run: |
+          # If src/app.py is present in the repo, sync it to the application directory
+          if [ -f "src/app.py" ]; then
+            rsync -avz -e ssh src/app.py app-node:/opt/alert-enrichment/app/app.py
+          fi
