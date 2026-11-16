@@ -1,0 +1,9 @@
+{
+  "@timestamp": "2026-11-06T18:40:03.000Z",
+  "kibana.alert.uuid": "sample-capsetuid-0001",
+  "kibana.alert.original_time": "2026-11-06T18:40:02.118Z",
+  "kibana.alert.rule.name": "Potential Privilege Escalation via Python cap_setuid",
+  "kibana.alert.severity": "high",
+  "host.id": "test-linux-host-0001",
+  "process.entity_id": "sample-entity-python-0001"
+}

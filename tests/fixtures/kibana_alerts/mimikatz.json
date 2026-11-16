@@ -1,0 +1,11 @@
+{
+  "@timestamp": "2026-11-06T18:20:44.000Z",
+  "kibana.alert.uuid": "sample-mimikatz-0001",
+  "kibana.alert.original_time": "2026-11-06T18:20:41.906Z",
+  "kibana.alert.rule.name": "Potential Invoke-Mimikatz PowerShell Script",
+  "kibana.alert.severity": "critical",
+  "host": {"id": "test-win-host-0001", "name": "TEST-WIN10"},
+  "user": {"name": "labuser", "domain": "LAB"},
+  "process": {"pid": 6232},
+  "powershell": {"file": {"script_block_id": "00000000-0000-0000-0000-000000000001"}, "sequence": 1, "total": 3}
+}
